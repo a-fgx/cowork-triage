@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run python:*)",
+      "Bash(uv run:*)",
+      "Bash(uv add:*)",
+      "Bash(uv pip index:*)",
+      "Bash(pip index:*)",
+      "Bash(uv pip show:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}

@@ -1,0 +1,77 @@
+[project]
+name = "cowork-triage"
+version = "0.1.0"
+description = "LangGraph-based diagnostic agent for bug resolution"
+requires-python = ">=3.11"
+
+dependencies = [
+    # === LangGraph & LangChain Core ===
+    # langgraph: The graph-based orchestration framework
+    # - Enables multi-step workflows with nodes and edges
+    # - Manages state between steps
+    # - Supports conditional routing and loops
+    "langgraph>=0.2.0",
+    # langchain-core: Base abstractions for LangChain ecosystem
+    # - Message types (HumanMessage, AIMessage)
+    # - Tool definitions
+    # - Runnable interface
+    "langchain-core>=0.3.0",
+    # === LLM Provider ===
+    # langchain-google-genai: Google Gemini integration
+    # - Chat models (gemini-1.5-pro, gemini-1.5-flash)
+    # - Embeddings for RAG
+    # - Structured output support
+    "langchain-google-genai>=2.0.0",
+    # === RAG / Vector Store ===
+    # langchain-chroma: ChromaDB integration for LangChain
+    # - Vector store wrapper
+    # - Retriever interface
+    "langchain-chroma>=0.2.0",
+    # chromadb: Local vector database
+    # - Stores embeddings
+    # - Similarity search
+    # - Persistent storage
+    "chromadb>=0.5.0",
+    # === External APIs ===
+    # httpx: Modern HTTP client
+    # - Async support
+    # - Used for GitHub API calls
+    "httpx>=0.27.0",
+    # === Configuration ===
+    # python-dotenv: Load .env files
+    # - Keep API keys out of code
+    # - Environment-specific config
+    "python-dotenv>=1.0.0",
+    # === Observability ===
+    # langsmith: LangChain's observability platform
+    # - Tracing for debugging
+    # - Metrics for evaluation
+    # - Dataset management
+    "langsmith>=0.2.0",
+    # === Dataset ===
+    # kaggle: Kaggle API client
+    # - Download datasets
+    # - Access competitions
+    "kaggle>=1.6.0",
+    "hatch>=1.16.3",
+    "langgraph-cli[inmem]>=0.4.11",
+    "langgraph-api==0.6.39",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
