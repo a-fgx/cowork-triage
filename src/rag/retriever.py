@@ -100,7 +100,6 @@ def rag_search_node(state: DiagnosticState) -> dict[str, Any]:
         # No query to search
         return {
             "rag_results": [],
-            "current_phase": "diagnosis",
         }
 
     # Search the knowledge base
@@ -113,7 +112,6 @@ def rag_search_node(state: DiagnosticState) -> dict[str, Any]:
 
     return {
         "rag_results": results,
-        "current_phase": "diagnosis",
     }
 
 

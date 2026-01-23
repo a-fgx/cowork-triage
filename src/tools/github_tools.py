@@ -407,7 +407,6 @@ def github_search_node(state: dict) -> dict:
         "related_issues": all_issues,
         "library_detection": library_detection,
         "github_confidence": github_confidence,
-        "current_phase": "searching",  # Stay in searching for RAG
     }
 
 

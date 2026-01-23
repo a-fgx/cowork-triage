@@ -181,37 +181,51 @@ Output JSON:
 # Used by: resolution.py
 # Purpose: Create a step-by-step resolution plan
 
-RESOLUTION_PROMPT = """You are a resolution specialist creating an actionable fix plan.
+RESOLUTION_PROMPT = """You are a resolution specialist creating an actionable fix plan for LangChain ecosystem issues.
 
 Given:
 - The selected diagnosis (most likely root cause)
-- The original bug report
-- Related issues and known solutions
+- The original bug report with error message
+- Related GitHub issues (some may be closed with solutions)
+- Known solutions from similar errors
 
-Create a step-by-step resolution plan.
+Create a step-by-step resolution plan with 3-5 SPECIFIC, ACTIONABLE steps.
 
 For each step, provide:
 1. order: Step number (1, 2, 3...)
-2. action: Specific action to take (be concrete!)
-3. rationale: Why this step helps
+2. action: Specific action to take - BE CONCRETE with exact code, commands, or file changes
+3. rationale: Why this step helps solve the problem
 4. expected_outcome: What should change after this step
 
-GUIDELINES:
-- Steps should be in logical order (prerequisites first)
-- Be SPECIFIC: include exact commands, file paths, code snippets when applicable
-- Include verification steps (how to confirm the fix worked)
-- Keep it practical: focus on the minimal changes needed
-- Reference specific packages, versions, or configurations
+CRITICAL RULES:
+- DO NOT give generic advice like "review the error" or "search online" - the user already has the diagnosis
+- Each step MUST be a concrete action: code to change, command to run, config to modify
+- If a GitHub issue is closed, check if it has a solution and include it
+- If RAG results have solutions, adapt them to the user's specific code
+- Include the exact code changes when possible (e.g., "Change `param='config'` to `param='settings'`")
+- Always end with a verification step
 
-EXAMPLE STEP:
+EXAMPLE GOOD STEPS:
 {
     "order": 1,
-    "action": "Install nest_asyncio: pip install nest_asyncio",
-    "rationale": "Allows nested event loops, required for async in Jupyter",
-    "expected_outcome": "Package installs without errors"
+    "action": "Rename the 'config' parameter in your tool function to avoid collision with LangGraph's reserved name: `def my_tool(settings: dict)` instead of `def my_tool(config: dict)`",
+    "rationale": "LangGraph reserves 'config' for internal use, causing name collision errors",
+    "expected_outcome": "Tool executes without argument name collision"
 }
 
-Output JSON:
+{
+    "order": 2,
+    "action": "Upgrade langchain-core to version 0.3.x: `pip install -U langchain-core>=0.3.0`",
+    "rationale": "This bug was fixed in langchain-core 0.3.0 (see GitHub issue #1234)",
+    "expected_outcome": "Package upgrades successfully"
+}
+
+EXAMPLE BAD STEPS (DO NOT USE):
+- "Review the error message carefully" (too generic)
+- "Search for the error online" (not actionable)
+- "Check the documentation" (vague)
+
+Output ONLY valid JSON (no markdown, no extra text):
 {
     "steps": [
         {
