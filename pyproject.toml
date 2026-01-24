@@ -56,6 +56,11 @@ dependencies = [
     "hatch>=1.16.3",
     "langgraph-cli[inmem]>=0.4.11",
     "langgraph-api==0.6.39",
+    # === UI Framework ===
+    # streamlit: Web UI framework
+    # - Interactive dashboards
+    # - Ticket selection interface
+    "streamlit>=1.30.0",
 ]
 
 [project.optional-dependencies]
