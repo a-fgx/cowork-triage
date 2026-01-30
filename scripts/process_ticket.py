@@ -6,9 +6,11 @@ All exchanges happen within the ticket file itself.
 
 Usage:
     python scripts/process_ticket.py <ticket_number>
+    python scripts/process_ticket.py <ticket_number> --clean  # Reset exchange log first
 
 Example:
     python scripts/process_ticket.py 001
+    python scripts/process_ticket.py 001 --clean
 """
 
 import argparse
@@ -61,6 +63,32 @@ def list_tickets() -> list[str]:
     if not TICKETS_DIR.exists():
         return []
     return sorted([f.stem.replace("ticket_", "") for f in TICKETS_DIR.glob("ticket_*.md")])
+
+
+def clean_exchange_log(ticket_number: str) -> bool:
+    """
+    Remove all content below '## Exchange Log' in a ticket file.
+
+    Returns True if cleaning was performed, False if no Exchange Log section found.
+    """
+    ticket_path = get_ticket_path(ticket_number)
+    if not ticket_path.exists():
+        print(f"Ticket not found: {ticket_path}")
+        return False
+
+    content = ticket_path.read_text()
+
+    if "## Exchange Log" not in content:
+        print("No '## Exchange Log' section found in ticket.")
+        return False
+
+    # Keep everything up to and including "## Exchange Log"
+    parts = content.split("## Exchange Log")
+    cleaned_content = parts[0] + "## Exchange Log\n"
+
+    ticket_path.write_text(cleaned_content)
+    print(f"Cleaned exchange log for ticket {ticket_number}")
+    return True
 
 
 def count_skip_responses(content: str) -> int:
@@ -214,6 +242,11 @@ def process_ticket(ticket_number: str):
 def main():
     parser = argparse.ArgumentParser(description="Process a ticket from incoming_tickets")
     parser.add_argument("ticket_number", nargs="?", help="Ticket number to process (e.g., 001)")
+    parser.add_argument(
+        "--clean", "-c",
+        action="store_true",
+        help="Clean/reset the exchange log before processing (removes previous agent responses)"
+    )
     args = parser.parse_args()
 
     if not args.ticket_number:
@@ -224,8 +257,12 @@ def main():
                 print(f"  - {t}")
         else:
             print("  No tickets found in incoming_tickets/")
-        print("\nUsage: python scripts/process_ticket.py <ticket_number>")
+        print("\nUsage: python scripts/process_ticket.py <ticket_number> [--clean]")
         sys.exit(0)
+
+    # Clean exchange log if requested
+    if args.clean:
+        clean_exchange_log(args.ticket_number)
 
     process_ticket(args.ticket_number)
 

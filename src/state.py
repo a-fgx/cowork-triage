@@ -228,6 +228,9 @@ class DiagnosticState(TypedDict):
     # Related GitHub issues found
     related_issues: list[GitHubIssue]
 
+    # Confidence score from GitHub search (0.0 to 1.0)
+    github_confidence: NotRequired[float]
+
     # Similar error messages from the knowledge base
     rag_results: list[RAGResult]
 

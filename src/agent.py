@@ -8,7 +8,7 @@ The StateGraph defines:
 - Conditional edges: Dynamic routing based on state
 
 Graph Structure:
-    START → intake → classifier → github_search → rag_search → diagnoser
+    START → intake → classifier → [github_search, rag_search] (parallel) → diagnoser
                                                                     ↓
                                                         [check_confidence?]
                                                                     ↓
@@ -100,10 +100,15 @@ def build_diagnostic_graph() -> StateGraph:
     # Start with intake
     graph.add_edge(START, "intake")
 
-    # Intake → Classifier → Search sequence (always search first now)
+    # Intake → Classifier
     graph.add_edge("intake", "classifier")
+
+    # Fan out: classifier → github_search AND rag_search (parallel)
     graph.add_edge("classifier", "github_search")
-    graph.add_edge("github_search", "rag_search")
+    graph.add_edge("classifier", "rag_search")
+
+    # Fan in: both searches → diagnoser (waits for both to complete)
+    graph.add_edge("github_search", "diagnoser")
     graph.add_edge("rag_search", "diagnoser")
 
     # After diagnosis: resolution, gather info, or end

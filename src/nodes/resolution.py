@@ -8,11 +8,44 @@ selected hypothesis and generates actionable steps to fix the issue.
 """
 
 import json
+import re
 from typing import Any
 
 from src.state import DiagnosticState, ResolutionStep
 from src.llm import get_llm, invoke_with_system
 from src.prompts.templates import RESOLUTION_PROMPT
+
+
+def extract_json_from_response(response: str) -> dict:
+    """
+    Extract JSON from LLM response that may contain markdown or extra text.
+    """
+    if not response or not response.strip():
+        raise ValueError("Empty response from LLM")
+
+    # Try direct parsing first
+    try:
+        return json.loads(response)
+    except json.JSONDecodeError:
+        pass
+
+    # Try to find JSON in markdown code block
+    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
+    if json_match:
+        try:
+            return json.loads(json_match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    # Try to find JSON object in the text
+    json_match = re.search(r'\{[\s\S]*\}', response)
+    if json_match:
+        try:
+            return json.loads(json_match.group(0))
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(f"Could not extract JSON from response: {response[:200]}...")
 
 
 def resolution_node(state: DiagnosticState) -> dict[str, Any]:
@@ -86,7 +119,7 @@ def resolution_node(state: DiagnosticState) -> dict[str, Any]:
             user_message=full_context,
         )
 
-        result = json.loads(response)
+        result = extract_json_from_response(response)
         raw_steps = result.get("steps", [])
 
         # Convert to our ResolutionStep type
@@ -101,23 +134,14 @@ def resolution_node(state: DiagnosticState) -> dict[str, Any]:
                 }
             )
 
-    except (json.JSONDecodeError, KeyError) as e:
+        # If no steps were parsed, raise to trigger fallback
+        if not resolution_plan:
+            raise ValueError("No resolution steps generated")
+
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
         print(f"Resolution parsing error: {e}")
-        # Fallback to basic steps
-        resolution_plan = [
-            {
-                "order": 1,
-                "action": "Review the error message and stack trace carefully",
-                "rationale": "Understanding the exact error is the first step",
-                "expected_outcome": "Identify the specific line or function causing the issue",
-            },
-            {
-                "order": 2,
-                "action": "Search for the error message online",
-                "rationale": "Others may have encountered and solved this issue",
-                "expected_outcome": "Find relevant Stack Overflow posts or documentation",
-            },
-        ]
+        # Generate context-aware fallback based on hypothesis and related issues
+        resolution_plan = generate_fallback_plan(hypothesis, related_issues, rag_results)
 
     # Format the final response
     library_detection = state.get("library_detection")
@@ -131,6 +155,80 @@ def resolution_node(state: DiagnosticState) -> dict[str, Any]:
         "current_phase": "complete",
         "messages": [{"role": "assistant", "content": summary}],
     }
+
+
+def generate_fallback_plan(
+    hypothesis: dict,
+    related_issues: list[dict],
+    rag_results: list[dict],
+) -> list[ResolutionStep]:
+    """
+    Generate a context-aware fallback resolution plan when LLM parsing fails.
+
+    Uses the hypothesis, related issues, and RAG results to create
+    meaningful steps rather than generic ones.
+    """
+    steps: list[ResolutionStep] = []
+    step_num = 1
+
+    # Step based on hypothesis validations
+    validations = hypothesis.get("required_validations", [])
+    for validation in validations[:2]:  # Use first 2 validations as steps
+        steps.append({
+            "order": step_num,
+            "action": validation,
+            "rationale": "Validation step from diagnosis",
+            "expected_outcome": "Confirm or rule out the suspected root cause",
+        })
+        step_num += 1
+
+    # Step based on closed GitHub issues (likely have solutions)
+    closed_issues = [i for i in related_issues if i.get("state") == "closed"]
+    if closed_issues:
+        issue = closed_issues[0]
+        steps.append({
+            "order": step_num,
+            "action": f"Review the solution in GitHub issue #{issue['number']}: {issue['url']}",
+            "rationale": "This closed issue likely contains a working solution",
+            "expected_outcome": "Find the fix that resolved a similar problem",
+        })
+        step_num += 1
+
+    # Step based on RAG solutions
+    if rag_results:
+        best_result = rag_results[0]
+        solution = best_result.get("solution", "")
+        if solution and len(solution) > 10:
+            # Truncate long solutions
+            action = solution[:200] + "..." if len(solution) > 200 else solution
+            steps.append({
+                "order": step_num,
+                "action": action,
+                "rationale": f"Known solution from similar error (similarity: {best_result.get('similarity_score', 0):.0%})",
+                "expected_outcome": "Apply the fix that worked for a similar error",
+            })
+            step_num += 1
+
+    # If we still have no steps, add hypothesis-based step
+    if not steps:
+        description = hypothesis.get("description", "Unknown issue")
+        evidence = hypothesis.get("evidence", [])
+        steps.append({
+            "order": 1,
+            "action": f"Investigate: {description}",
+            "rationale": f"Based on evidence: {evidence[0] if evidence else 'diagnosis analysis'}",
+            "expected_outcome": "Identify and fix the root cause",
+        })
+
+    # Always add a verification step
+    steps.append({
+        "order": len(steps) + 1,
+        "action": "Test the fix by running the original code that caused the error",
+        "rationale": "Verify that the issue is resolved",
+        "expected_outcome": "Code runs without the original error",
+    })
+
+    return steps
 
 
 def format_resolution_summary(
